@@ -7,6 +7,7 @@ import pyttsx3
 import json
 import os
 import sys
+import soundfile as sf
 
 # Constants
 SAMPLE_RATE = 44100
@@ -162,8 +163,20 @@ def main():
             # 4. Action!
             if response:
                 print(f"🤖 Known Greeting! Replying: '{response}'")
-                engine.say(response)
+                
+                # We save pyttsx3 speech to a file and play it via sounddevice
+                # This ensures the audio goes to the exact same speaker as the parrot effect!
+                tts_filename = "temp_greeting.wav"
+                engine.save_to_file(response, tts_filename)
                 engine.runAndWait()
+                
+                # Play it through sounddevice
+                if os.path.exists(tts_filename):
+                    data, fs = sf.read(tts_filename, dtype='float32')
+                    sd.play(data, samplerate=fs)
+                    sd.wait()
+                    os.remove(tts_filename)
+                    
             else:
                 print("⚙️ Applying standard parrot robot effect...")
                 processed_audio = apply_robot_effect(audio, SAMPLE_RATE)
