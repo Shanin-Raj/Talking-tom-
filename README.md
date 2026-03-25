@@ -1,6 +1,6 @@
 # PyTalkingTom Bot
 
-A Python-based "Talking Tom" style voice bot that captures audio from your microphone, uses completely offline Speech-to-Text (Vosk) to recognize greetings like "hello" or "good morning", and replies intelligently using offline Text-to-Speech (pyttsx3). If it doesn't recognize a greeting, it applies a fun robotic effect and parrots your words back!
+A simple Python-based "Talking Tom" style voice bot that captures audio from your microphone, applies a fun robotic effect, and plays it back. It ignores background noise and waits for you to finish your sentence before replying!
 
 ## Prerequisites
 - Python 3.7+ installed on your system.
@@ -42,13 +42,7 @@ Once your virtual environment is active (you'll see `(venv)` in your terminal pr
 pip install -r requirements.txt
 ```
 
-*(Note: The main dependencies are `sounddevice` for audio, `vosk` for Speech-to-Text, and `pyttsx3` for Text-to-Speech.)*
-
-### 4. Download Language Model
-Vosk requires a small (~50MB) offline language model to recognize speech. Run the tiny script to download and extract it to a `model` folder automatically:
-```bash
-python download_model.py
-```
+*(Note: The main dependencies are `sounddevice` for audio capture/playback and `numpy` for audio processing.)*
 
 ## Running the Bot
 
