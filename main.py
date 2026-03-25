@@ -2,6 +2,11 @@ import sounddevice as sd
 import numpy as np
 import time
 import queue
+import vosk
+import pyttsx3
+import json
+import os
+import sys
 
 # Constants
 SAMPLE_RATE = 44100
@@ -9,6 +14,15 @@ CHANNELS = 1 # Mono
 SILENCE_THRESHOLD = 0.01 # Increased slightly above your background noise (0.0060)
 SILENCE_DURATION = 1.5 # Increased slightly to prevent cutting off between words
 MIN_RECORD_DURATION = 0.5 # Minimum duration to actually trigger playback
+
+# Static Offline Data
+GREETINGS = {
+    "hello": "Hello there! How are you doing today?",
+    "hi": "Hi! Nice to meet you.",
+    "good morning": "Good morning to you too!",
+    "good night": "Sleep well! Good night.",
+    "how are you": "I am just a simple Python bot, but I'm doing great!"
+}
 
 def get_rms(data):
     """Calculate the Root Mean Square (volume) of the audio data"""
@@ -89,8 +103,35 @@ def apply_robot_effect(audio_data, sample_rate):
         
     return robot_audio
 
+def process_audio_intent(audio, model):
+    """Converts the recorded float audio to PCM Int16, and feeds it to Vosk STT."""
+    # Convert numpy float arrays [-1.0, 1.0] to int16 [-32768, 32767]
+    audio_int16 = (audio * 32767).astype(np.int16)
+    
+    # Create recognizer for this run
+    recognizer = vosk.KaldiRecognizer(model, SAMPLE_RATE)
+    
+    # Accept waveform (requires raw bytes)
+    recognizer.AcceptWaveform(audio_int16.tobytes())
+    res = json.loads(recognizer.FinalResult())
+    return res.get("text", "").strip()
+
 def main():
-    print("=== PyTalkingTom Bot ===")
+    # 1. Initialize pyttsx3 offline text-to-speech engine
+    engine = pyttsx3.init()
+    engine.setProperty('rate', 160) # Default rate is often a bit fast
+    
+    # 2. Check and load the Vosk offline model
+    print("\nLoading Offline Vosk STT Model (this takes a few seconds)...")
+    if not os.path.exists("model"):
+        print("❌ Model foldler 'model' not found! Please run 'python download_model.py' first.")
+        sys.exit(1)
+        
+    # Set vosk log level to -1 to suppress spammy warnings
+    vosk.SetLogLevel(-1)
+    model = vosk.Model("model")
+    
+    print("\n=== PyTalkingTom Offline Action Bot ===")
     print("Press Ctrl+C to exit.\n")
     
     # Print out default devices
@@ -106,20 +147,29 @@ def main():
                 print("Audio too short, ignoring.")
                 continue
                 
-            # 2. Process audio
-            print("⚙️ Applying effect...")
-            processed_audio = apply_robot_effect(audio, SAMPLE_RATE)
-            playback_rate = SAMPLE_RATE 
+            # 2. Process audio with Speech-to-Text
+            print("🧠 Analyzing speech...")
+            recognized_text = process_audio_intent(audio, model)
+            print(f"   You said: '{recognized_text}'")
             
-            # (Uncomment below to use classic "Talking Tom" chipmunk voice instead of Robot)
-            # processed_audio = audio
-            # playback_rate = int(SAMPLE_RATE * 1.5) # Play 50% faster
-                
-            print("🔊 Playing back robot voice...")
+            # 3. Check against static dictionary
+            response = None
+            for key, reply in GREETINGS.items():
+                if key in recognized_text.lower():
+                    response = reply
+                    break
             
-            # 3. Play audio out through the laptop speaker
-            sd.play(processed_audio, samplerate=playback_rate)
-            sd.wait() # Wait until audio is done playing completely
+            # 4. Action!
+            if response:
+                print(f"🤖 Known Greeting! Replying: '{response}'")
+                engine.say(response)
+                engine.runAndWait()
+            else:
+                print("⚙️ Applying standard parrot robot effect...")
+                processed_audio = apply_robot_effect(audio, SAMPLE_RATE)
+                print("🔊 Playing back robot voice...")
+                sd.play(processed_audio, samplerate=SAMPLE_RATE)
+                sd.wait() # Wait until audio is done playing completely
             
             print("✅ Done. Ready for more.")
             print("-" * 30)
